@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,17 @@ import {
   TextInput,
   Alert,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
-import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getSilentZones } from '../services/locationService';
 import { RootStackParamList, Zone } from '../types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
 import MapView, { Marker, Circle } from 'react-native-maps';
+import { RouteProp } from '@react-navigation/native';
+import AnimatedHeader from './AnimationHeader';
+import { LocationContext } from '../context/LocationContext';
 
 export default function LocationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -25,31 +27,22 @@ export default function LocationScreen() {
   const [radius, setRadius] = useState(String(editZone?.radius || '50'));
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
+  const { location: globalLocation } = useContext(LocationContext);
+
   useEffect(() => {
-    const init = async () => {
-      if (editZone) {
-        setLocation({
-          latitude: editZone.latitude,
-          longitude: editZone.longitude,
-        });
-      } else {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Denied', 'Location permission is required.');
-          return;
-        }
-
-        const loc = await Location.getCurrentPositionAsync({});
-        setLocation(loc.coords);
-      }
-    };
-
-    init();
-  }, []);
+    if (editZone) {
+      setLocation({
+        latitude: editZone.latitude,
+        longitude: editZone.longitude,
+      });
+    } else if (globalLocation) {
+      setLocation(globalLocation);
+    }
+  }, [editZone, globalLocation]);
 
   const handleSave = async () => {
-    if (!name || !radius || !location) {
-      Alert.alert('Validation', 'All fields and location required');
+    if (!name.trim() || !radius || !location) {
+      Alert.alert('Validation Error', 'Please fill all fields and allow location.');
       return;
     }
 
@@ -57,49 +50,64 @@ export default function LocationScreen() {
       name,
       latitude: location.latitude,
       longitude: location.longitude,
-      radius: parseInt(radius),
+      radius: parseInt(radius) || 50,
     };
 
-    const zones = await getSilentZones();
-    const filtered = zones.filter(z => z.name !== editZone?.name);
-    const updated = [...filtered, newZone];
+    try {
+      const storedZones = await getSilentZones();
 
-    await AsyncStorage.setItem('SILENT_ZONES', JSON.stringify(updated));
-    navigation.goBack();
+      const updatedZones = editZone
+        ? storedZones.filter((z) => z.name !== editZone.name).concat(newZone)
+        : [...storedZones, newZone];
+
+      await AsyncStorage.setItem('SILENT_ZONES', JSON.stringify(updatedZones));
+      Alert.alert('Success', editZone ? 'Zone updated!' : 'Zone saved!');
+      navigation.goBack();
+    } catch (e) {
+      console.error('Error saving zone:', e);
+      Alert.alert('Error', 'Failed to save the zone. Please try again.');
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>
-        {editZone ? 'Edit Zone' : 'Add Silent Zone'}
-      </Text>
+      <AnimatedHeader
+        title={editZone ? 'Edit Zone' : 'Add Silent Zone'}
+        icon={editZone ? 'map-marker-edit' : 'map-marker-plus'}
+      />
 
       <Text style={styles.label}>Zone Name</Text>
       <TextInput
         value={name}
         onChangeText={setName}
-        style={styles.input}
         placeholder="Ex: Library, Temple"
         placeholderTextColor="#aaa"
+        style={styles.input}
       />
 
-      <Text style={styles.label}>Radius (in meters)</Text>
+      <Text style={styles.label}>Radius (meters)</Text>
       <TextInput
         value={radius}
         onChangeText={setRadius}
-        style={styles.input}
-        placeholder="Ex: 100"
         keyboardType="numeric"
+        placeholder="Ex: 100"
         placeholderTextColor="#aaa"
+        style={styles.input}
       />
 
-      {location && (
+      {!location ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color="#0984e3" />
+          <Text style={{ marginTop: 10, color: '#636e72' }}>
+            📍 Loading Location...
+          </Text>
+        </View>
+      ) : (
         <View style={styles.mapContainer}>
           <MapView
             style={{ flex: 1 }}
             initialRegion={{
-              latitude: location.latitude,
-              longitude: location.longitude,
+              ...location,
               latitudeDelta: 0.01,
               longitudeDelta: 0.01,
             }}
@@ -107,28 +115,17 @@ export default function LocationScreen() {
             <Marker coordinate={location} title={name || 'Zone Location'} />
             <Circle
               center={location}
-              radius={parseInt(radius)}
-              strokeColor="rgba(0, 122, 255, 0.6)"
-              fillColor="rgba(0, 122, 255, 0.2)"
+              radius={parseInt(radius) || 50}
+              strokeColor="rgba(0,122,255,0.6)"
+              fillColor="rgba(0,122,255,0.2)"
             />
           </MapView>
         </View>
       )}
 
-      <Pressable
-        style={[
-          styles.saveBtn,
-          !location && { backgroundColor: '#95a5a6' },
-        ]}
-        onPress={handleSave}
-        disabled={!location}
-      >
+      <Pressable style={styles.saveBtn} onPress={handleSave}>
         <Text style={styles.saveBtnText}>
-          {!location
-            ? '⏳ Loading Location...'
-            : editZone
-            ? 'Update Zone'
-            : '💾 Save Zone'}
+          {editZone ? 'Update Zone' : '💾 Save Zone'}
         </Text>
       </Pressable>
     </View>
@@ -136,18 +133,7 @@ export default function LocationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#eef2f5',
-    padding: 20,
-  },
-  heading: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
+  container: { flex: 1, backgroundColor: '#eef2f5', padding: 20 },
   label: {
     fontSize: 16,
     fontWeight: '600',
@@ -171,10 +157,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  saveBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+  loadingBox: {
+    height: 250,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#dfe6e9',
+    marginTop: 20,
+    borderRadius: 12,
   },
   mapContainer: {
     height: 250,

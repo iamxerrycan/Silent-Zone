@@ -1,47 +1,77 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# --------------------
+# 📦 Node Dependencies
+# --------------------
 node_modules/
 
-# Expo
+# --------------------
+# 🚀 Expo & Build
+# --------------------
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
 
+# --------------------
+# 🔐 Sensitive Keys / Env Files
+# --------------------
+.env
+.env.*.local
+.env.local
+.env.production
+.env.development
+.env.test
+.env.development.local
 
-# Native
-.kotlin/
-*.orig.*
+# --------------------
+# 📱 Native Keys / Android / iOS
+# --------------------
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.orig.*
 
-# Metro
+# --------------------
+# 🧠 Metro + Debug
+# --------------------
 .metro-health-check*
-
-# debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.tsbuildinfo
 
-# macOS
+# --------------------
+# 🧰 Mac / System / IDE files
+# --------------------
 .DS_Store
 *.pem
+.idea/
+.vscode/
 
-# local env files
-.env*.local
-# dotenv
-.env.development.local
-# typescript
-*.tsbuildinfo
-.env
+# --------------------
+# 🔐 Lock files (optional — only ignore if using yarn/pnpm)
+# --------------------
+# Uncomment one depending on your package manager
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
-#package-lock.json
-#yarn.lock  
-#pnpm-lock.yaml
-package-lock.json/
-package-lock.json
+# --------------------
+# 📂 EAS Build
+# --------------------
+*.tar.gz
+build/
 
+# --------------------
+# 🧪 Jest cache
+# --------------------
+coverage/
+jest.config.js
+
+# --------------------
+# 🔒 Misc
+# --------------------
+*.log
