@@ -8,7 +8,7 @@ A React Native app built with **Expo** that automatically detects when you enter
 
 ### ▶️ Download the latest APK:
 **[Download APK Here](https://expo.dev/accounts/iamxerrycan/projects/auto-silent-app)**  
-(Replace with your EAS build or GitHub release link)
+
 
 ---
 
